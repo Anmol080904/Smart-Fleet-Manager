@@ -156,3 +156,10 @@ paypalrestsdk.configure({
     "client_id": settings.PAYPAL_CLIENT_ID,
     "client_secret": settings.PAYPAL_CLIENT_SECRET
 })
+ALLOWED_HOSTS = ['*']  # or ['smart-fleet-backend.onrender.com'] later
+
+# Add this if not already:
+import os
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = '/static/'
