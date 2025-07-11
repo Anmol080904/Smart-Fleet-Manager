@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn Backend.wsgi
+    startCommand: PYTHONPATH=. gunicorn Backend.wsgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: Backend.settings
