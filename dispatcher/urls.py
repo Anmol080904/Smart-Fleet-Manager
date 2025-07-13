@@ -1,9 +1,9 @@
 from django.urls import path
 from .views import (
-    list_dispatch_tasks
+    assign_order_dispatch
 )
 
 urlpatterns = [
-    path('list/', list_dispatch_tasks, name='create-dispatch'),
+    path('assign/', assign_order_dispatch, name='create-dispatch'),
    
 ]

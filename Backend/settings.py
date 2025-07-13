@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "vehicles",
     "dispatcher",
     "accountant",
+    "customers",
     "rest_framework",
 ]
 

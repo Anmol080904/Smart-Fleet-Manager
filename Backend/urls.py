@@ -16,5 +16,5 @@ urlpatterns = [
     path('api/dispatcher/',include('dispatcher.urls')),
     path('api/accountant/',include('accountant.urls')),
     path('api/billing/',include('billing.urls')),
-    
+    path('api/customer/',include('customers.urls'))
 ]
