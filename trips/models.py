@@ -1,6 +1,6 @@
 from django.db import models
 from vehicles.models import Vehicle
-from drivers.models import Driver  # ✅ Use Driver model
+from drivers.models import Driver 
 from routes.models import Route
 
 class Trip(models.Model):

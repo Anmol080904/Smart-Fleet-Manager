@@ -125,3 +125,29 @@ def delete_driver(request, driver_id):
         return JsonResponse({'error': 'Driver not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+@csrf_protect
+@require_http_methods(["POST"])
+def toggle_availability(request):
+    user = request.user
+
+    # Check if user is authenticated and is a driver
+    if not user.is_authenticated or not hasattr(user, 'profile') or user.profile.role != 'driver':
+        return JsonResponse({'error': 'Unauthorized: Only drivers allowed'}, status=401)
+
+    try:
+        driver = Driver.objects.get(user=user)
+        data = json.loads(request.body)
+        new_status = data.get("availability")
+
+        if new_status is None:
+            return JsonResponse({'error': 'Missing "availability" in request body'}, status=400)
+
+        driver.availability = bool(new_status)
+        driver.save()
+
+        return JsonResponse({'message': 'Availability updated', 'availability': driver.availability}, status=200)
+
+    except Driver.DoesNotExist:
+        return JsonResponse({'error': 'Driver profile not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

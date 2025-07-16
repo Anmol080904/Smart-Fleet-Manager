@@ -98,12 +98,8 @@ def create_order(request):
         load_weight = data['load_weight']
         deadline = data['deadline']
         status = data.get('status', 'pending')
-
-        # Convert to float coordinates
         start_coords = tuple(map(float, origin.split(',')))
         end_coords = (float(destination_lat), float(destination_lng))  # <-- From frontend
-
-        # Use ORS to get route
         api_key = os.environ.get("ORS_API_KEY")
         waypoints, distance, duration = fetch_route_from_ors(start_coords, end_coords, api_key)
 
@@ -115,10 +111,8 @@ def create_order(request):
                 {"lat": end_coords[0], "lng": end_coords[1]}
             ]
 
-        # Store destination as string for record
         destination = f"{destination_lat},{destination_lng}"
 
-        # Save route
         route = Route.objects.create(
             name=f"Route for {customer}",
             waypoints=waypoints,
@@ -126,7 +120,6 @@ def create_order(request):
             estimated_duration=duration
         )
 
-        # Save order
         order = Order.objects.create(
             customer_name=customer,
             origin=origin,
@@ -163,13 +156,11 @@ def cancel_order_by_customer(request):
         if order.status in ['cancelled', 'completed']:
             return JsonResponse({"message": f"Order already {order.status}."}, status=400)
 
-        # Find and delete dispatch task if it exists
         dispatch = DispatchTask.objects.filter(route=order.route).first()
         if dispatch:
             driver_profile = dispatch.driver
             vehicle = dispatch.vehicle
 
-            # Release driver and vehicle
             try:
                 driver = Driver.objects.get(user=driver_profile.user)
                 driver.availability = True

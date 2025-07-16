@@ -14,7 +14,6 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
     return R * c
-
 def fetch_route_from_ors(start_coords, end_coords, api_key):
     url = "https://api.openrouteservice.org/v2/directions/driving-car"
     headers = {
@@ -32,6 +31,21 @@ def fetch_route_from_ors(start_coords, end_coords, api_key):
     response = requests.post(url, json=payload, headers=headers)
 
     if response.status_code == 200:
-        return response.json()
+        data = response.json()
+
+        try:
+            coords = data['features'][0]['geometry']['coordinates']
+            waypoints = [{"lat": latlng[1], "lng": latlng[0]} for latlng in coords]
+
+            summary = data['features'][0]['properties']['summary']
+            distance = summary['distance'] / 1000  # in km
+            duration = timedelta(seconds=summary['duration'])  # as timedelta
+
+            return waypoints, distance, duration
+
+        except (KeyError, IndexError) as e:
+            print("Parsing error:", e)
+            return None, None, None
     else:
-        return {"error": response.text}
+        print("ORS API error:", response.text)
+        return None, None, None

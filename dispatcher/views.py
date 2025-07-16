@@ -84,3 +84,28 @@ def assign_order_dispatch(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+@csrf_protect
+@require_http_methods(["POST"])
+def update_vehicle_status(request):
+    try:
+        user = request.user
+        if not user.is_authenticated or not hasattr(user, 'profile') or user.profile.role != 'dispatcher':
+            return JsonResponse({'error': 'Unauthorized: Only dispatchers allowed'}, status=401)
+
+        data = json.loads(request.body)
+        vehicle_id = data.get('vehicle_id')
+        new_status = data.get('status')
+
+        if not vehicle_id or not new_status:
+            return JsonResponse({'error': 'Missing vehicle_id or status'}, status=400)
+
+        vehicle = Vehicle.objects.get(id=vehicle_id)
+        vehicle.status = new_status
+        vehicle.save()
+
+        return JsonResponse({'message': 'Vehicle status updated', 'vehicle_id': vehicle.id, 'new_status': new_status}, status=200)
+
+    except Vehicle.DoesNotExist:
+        return JsonResponse({'error': 'Vehicle not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
