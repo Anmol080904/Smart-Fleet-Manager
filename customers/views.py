@@ -86,20 +86,24 @@ def register_customer(request):
         return JsonResponse({'message': 'Customer registered successfully'}, status=201)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+import requests
+
 @csrf_protect
 @require_http_methods(["POST"])
 def create_order(request):
     try:
         data = json.loads(request.body)
         customer = data['customer_name']
-        origin = data['origin']  # this should be "lat,lon" string from frontend
+        origin = data['origin']
         destination_lat = data['destination_lat']
         destination_lng = data['destination_lng']
         load_weight = data['load_weight']
         deadline = data['deadline']
         status = data.get('status', 'pending')
+
         start_coords = tuple(map(float, origin.split(',')))
-        end_coords = (float(destination_lat), float(destination_lng))  # <-- From frontend
+        end_coords = (float(destination_lat), float(destination_lng))
+
         api_key = os.environ.get("ORS_API_KEY")
         waypoints, distance, duration = fetch_route_from_ors(start_coords, end_coords, api_key)
 
@@ -130,11 +134,26 @@ def create_order(request):
             route=route
         )
 
-        return JsonResponse({
-            "message": "Order created successfully. Awaiting dispatcher assignment.",
+        billing_url = "https://smart-fleet-manager-production.up.railway.app/api/customer/initiate"
+        amount = round(distance * 2, 2) 
+        billing_payload = {
             "order_id": order.id,
-            "route_id": route.id
-        }, status=201)
+            "amount": f"{amount:.2f}",
+            "currency": "RUPEES"
+        }
+
+        billing_response = requests.post(billing_url, json=billing_payload)
+
+        if billing_response.status_code == 200:
+            paypal_data = billing_response.json()
+            return JsonResponse({
+                "message": "Order created. Proceed to PayPal.",
+                "paypal_url": paypal_data.get("paypal_url"),
+                "order_id": order.id,
+                "route_id": route.id
+            }, status=201)
+        else:
+            return JsonResponse({"error": "Billing failed", "details": billing_response.text}, status=500)
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
