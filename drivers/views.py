@@ -1,4 +1,5 @@
 import json
+import requests
 from django.http import JsonResponse
 from django.contrib.auth.models import User
 from django.views.decorators.http import require_http_methods
@@ -7,17 +8,16 @@ from vehicles.models import Vehicle
 from .models import Driver
 from users.models import Profile
 
-# Helper: Check if user is dispatcher
+# ---- Helper ----
 def is_dispatcher(user):
     return user.is_authenticated and hasattr(user, 'profile') and user.profile.role == 'dispatcher'
 
-# Create driver (only dispatcher)
+# ---- Create Driver ----
 @csrf_protect
 @require_http_methods(["POST"])
 def create_driver(request):
     if not is_dispatcher(request.user):
         return JsonResponse({'error': 'Unauthorized: Only dispatchers allowed'}, status=401)
-
     try:
         data = json.loads(request.body)
 
@@ -38,7 +38,6 @@ def create_driver(request):
 
         user = User.objects.create_user(username=username, email=email, password=password)
         Profile.objects.create(user=user, role="driver")
-
         vehicle = Vehicle.objects.get(id=vehicle_id) if vehicle_id else None
 
         driver = Driver.objects.create(
@@ -59,7 +58,7 @@ def create_driver(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-# List drivers (only dispatcher)
+# ---- List Drivers ----
 @csrf_protect
 @require_http_methods(["GET"])
 def list_drivers(request):
@@ -81,7 +80,7 @@ def list_drivers(request):
 
     return JsonResponse(data, safe=False)
 
-# Update driver (only dispatcher)
+# ---- Update Driver ----
 @csrf_protect
 @require_http_methods(["POST"])
 def update_driver(request, driver_id):
@@ -94,8 +93,8 @@ def update_driver(request, driver_id):
 
         driver.license_number = data.get('license_number', driver.license_number)
         driver.availability = data.get('availability', driver.availability)
-
         vehicle_id = data.get('vehicle_id')
+
         if vehicle_id:
             vehicle = Vehicle.objects.get(id=vehicle_id)
             driver.assigned_vehicle = vehicle
@@ -108,7 +107,7 @@ def update_driver(request, driver_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-# Delete driver (only dispatcher)
+# ---- Delete Driver ----
 @csrf_protect
 @require_http_methods(["POST"])
 def delete_driver(request, driver_id):
@@ -125,12 +124,13 @@ def delete_driver(request, driver_id):
         return JsonResponse({'error': 'Driver not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+# ---- Toggle Driver Availability ----
 @csrf_protect
 @require_http_methods(["POST"])
 def toggle_availability(request):
     user = request.user
 
-    # Check if user is authenticated and is a driver
     if not user.is_authenticated or not hasattr(user, 'profile') or user.profile.role != 'driver':
         return JsonResponse({'error': 'Unauthorized: Only drivers allowed'}, status=401)
 
@@ -151,3 +151,52 @@ def toggle_availability(request):
         return JsonResponse({'error': 'Driver profile not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+AI_MICROSERVICE_URL = "http://localhost:5001"  
+
+@csrf_protect
+@require_http_methods(["POST"])
+def start_trip(request):
+    if not request.user.is_authenticated or not hasattr(request.user, 'profile') or request.user.profile.role != 'driver':
+        return JsonResponse({'error': 'Unauthorized: Only drivers can start trip'}, status=401)
+
+    try:
+        res = requests.post(f"{AI_MICROSERVICE_URL}/start-monitor")
+        if res.status_code == 200:
+            return JsonResponse({'message': 'Trip started, monitoring enabled'})
+        else:
+            return JsonResponse({'error': 'Failed to start monitoring'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Error contacting AI microservice: {str(e)}'}, status=500)
+
+@csrf_protect
+@require_http_methods(["POST"])
+def pause_trip(request):
+    if not request.user.is_authenticated or not hasattr(request.user, 'profile') or request.user.profile.role != 'driver':
+        return JsonResponse({'error': 'Unauthorized: Only drivers can pause trip'}, status=401)
+
+    try:
+        res = requests.post(f"{AI_MICROSERVICE_URL}/stop-monitor")
+        if res.status_code == 200:
+            return JsonResponse({'message': 'Trip paused, monitoring stopped'})
+        else:
+            return JsonResponse({'error': 'Failed to stop monitoring'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Error contacting AI microservice: {str(e)}'}, status=500)
+
+@csrf_protect
+@require_http_methods(["POST"])
+def end_trip(request):
+    if not request.user.is_authenticated or not hasattr(request.user, 'profile') or request.user.profile.role != 'driver':
+        return JsonResponse({'error': 'Unauthorized: Only drivers can end trip'}, status=401)
+
+    try:
+        res = requests.get(f"{AI_MICROSERVICE_URL}/check-drowsy")
+        if res.status_code == 200:
+            result = res.json()
+            return JsonResponse({'message': 'Trip ended', 'drowsy': result.get("drowsy")})
+        else:
+            return JsonResponse({'error': 'Failed to get drowsiness status'}, status=500)
+    except Exception as e:
+        return JsonResponse({'error': f'Error contacting AI microservice: {str(e)}'}, status=500)
